@@ -17,7 +17,7 @@ if(!defined('ABSPATH')) {
 
 function hive_connect_add_settings_page()
 {
-  add_options_page(
+  add_menu_page(
     'Hive Connect settings',
     'WP Hive Connect',
     'manage_options',
