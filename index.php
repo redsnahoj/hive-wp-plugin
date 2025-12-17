@@ -41,11 +41,14 @@ function hive_connect_settings_page_content()
 
   if(isset($_POST['hive_connect_nonce']) && wp_verify_nonce($_POST['hive_connect_nonce'], 'hive_connect_save_settings')) {
     $username = sanitize_text_field($_POST['hive_username']);
+    $api_url = esc_url_raw($_POST['hive_api_url']);
     update_option('hive_connect_username', $username);
+    update_option('hive_connect_api_url', $api_url);
     echo '<div class="notice notice-success"><p>Settings saved.</p></div>';
   }
 
   $current_username = get_option( 'hive_connect_username', '' );
+  $current_api_url = get_option( 'hive_connect_api_url', 'https://api.hive.blog/' );
   ?>
   <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
@@ -57,6 +60,14 @@ function hive_connect_settings_page_content()
           <td>
             <input name="hive_username" type="text" id="hive_username" value="<?php echo esc_attr($current_username); ?>" class="regular-text" placeholder="ej: aliento">
             <p class="description">Input the Hive username from where you want to upload the posts.</p>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row"><label for="hive_api_url">Hive API URL</label></th>
+          <td>
+            <input name="hive_api_url" type="url" id="hive_api_url" value="<?php echo esc_attr($current_api_url); ?>" class="regular-text" placeholder="https://api.hive.blog/">
+            <p class="description">Enter the URL of the Hive API node you want to use. **Must end with a forward slash (/)**.</p>
+            <p class="description">You can find a list of public API nodes here: <a href="https://developers.hive.io/quickstart/#quickstart-hive-full-nodes" target="_blank">Hive Public API Nodes</a>.</p>
           </td>
         </tr>
         <tr>
@@ -78,7 +89,7 @@ function hive_connect_settings_page_content()
 
 function hive_viewer_api_call($method, $params)
 {
-    $url = 'https://api.hive.blog/';
+    $url = get_option( 'hive_connect_api_url', 'https://api.hive.blog/' );
     $body = json_encode( [
         'jsonrpc' => '2.0',
         'method'  => 'condenser_api.' . $method,
