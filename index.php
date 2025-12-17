@@ -181,21 +181,38 @@ function hive_connect_posts_list_shortcode($atts)
 ?>
   <div class="hive-post-list">
     <h2>Latest posts by @<?php echo esc_html($username); ?></h2>
-    <ul class="list-disc ml-5">
+    <div class="space-y-6">
       <?php foreach($posts as $post) : 
         // Build the link to the post display page
         $link = get_site_url(null, $atts['viewer_page']) . '?permlink=' . urlencode($post['permlink']) . '&author=' . urlencode($post['author']);
+        
+        // --- Summary/Excerpt Logic ---
+        // 1. Remove HTML and Markdown tags for a clean preview
+        $clean_content = wp_strip_all_tags($post['body']);
+        // 2. Trim the content to 30 words
+        $excerpt = wp_trim_words($clean_content, 30, '...');
       ?>
-      <li class="mb-2 p-2 border-b border-gray-200 hover:bg-gray-50 rounded-md transition duration-150">
-        <a href="<?php echo esc_url( $link ); ?>" class="text-blue-600 hover:text-blue-800 font-semibold text-lg" title="<?php echo esc_attr( $post['title'] ); ?>">
-          <?php echo esc_html( $post['title'] ); ?>
-        </a>
-        <p class="text-sm text-gray-500 mt-1">
-          Published on <?php echo esc_html( date( 'd/m/Y', strtotime( $post['created'] ) ) ); ?> | Votes: <?php echo (int) $post['net_rshares']; ?>
+      <article class="p-4 border border-gray-200 rounded-lg hover:shadow-md transition duration-200 bg-white">
+        <h3 class="mb-2">
+          <a href="<?php echo esc_url( $link ); ?>" class="text-xl font-semibold text-blue-600 hover:text-blue-800" title="<?php echo esc_attr( $post['title'] ); ?>">
+            <?php echo esc_html( $post['title'] ); ?>
+          </a>
+        </h3>
+        
+        <p class="text-gray-600 text-sm mb-3 leading-relaxed">
+          <?php echo esc_html($excerpt); ?>
         </p>
-      </li>
-        <?php endforeach; ?>
-    </ul>
+
+        <div class="flex items-center text-xs text-gray-500 space-x-4">
+          <span>Published on <?php echo esc_html( date( 'd/m/Y', strtotime( $post['created'] ) ) ); ?></span>
+          <span>|</span>
+          <span>Votes: <?php echo (int) $post['net_rshares']; ?></span>
+          <span>|</span>
+          <a href="<?php echo esc_url( $link ); ?>" class="font-medium text-indigo-600 hover:text-indigo-800">Read more &rarr;</a>
+        </div>
+      </article>
+      <?php endforeach; ?>
+    </div>
   </div>
 <?php
 return ob_get_clean();
