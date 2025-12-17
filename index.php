@@ -37,18 +37,49 @@ function hive_connect_settings_page_content()
     return;
   }
 
-  // Save changes
+  // --- Start Save changes / Validation ---
+
+  $success_message = '';
+  $error_message = '';
 
   if(isset($_POST['hive_connect_nonce']) && wp_verify_nonce($_POST['hive_connect_nonce'], 'hive_connect_save_settings')) {
-    $username = sanitize_text_field($_POST['hive_username']);
-    $api_url = esc_url_raw($_POST['hive_api_url']);
-    update_option('hive_connect_username', $username);
-    update_option('hive_connect_api_url', $api_url);
-    echo '<div class="notice notice-success"><p>Settings saved.</p></div>';
+    
+    // 1. Sanitize and trim inputs
+    $input_username = sanitize_text_field($_POST['hive_username']);
+    $input_api_url = esc_url_raw($_POST['hive_api_url']);
+    
+    // 2. Validation for Hive Username (Required field)
+    if (empty($input_username)) {
+      $error_message = 'Error: The Hive Username field cannot be empty.';
+    } else {
+      
+      // 3. Set Default API URL if input is empty
+      if (empty($input_api_url)) {
+        $final_api_url = 'https://api.hive.blog/';
+      } else {
+        $final_api_url = $input_api_url;
+      }
+      
+      // 4. Save validated data
+      update_option('hive_connect_username', $input_username);
+      update_option('hive_connect_api_url', $final_api_url);
+      
+      $success_message = 'Settings saved.';
+    }
   }
 
+  // Display messages
+  if (!empty($error_message)) {
+    echo '<div class="notice notice-error"><p>' . esc_html($error_message) . '</p></div>';
+  }
+  if (!empty($success_message)) {
+    echo '<div class="notice notice-success"><p>' . esc_html($success_message) . '</p></div>';
+  }
+
+  // --- End Save changes / Validation ---
+
   $current_username = get_option( 'hive_connect_username', '' );
-  $current_api_url = get_option( 'hive_connect_api_url', 'https://api.hive.blog/' );
+  $current_api_url = get_option( 'hive_connect_api_url', 'https://api.hive.blog/' ); 
   ?>
   <div class="wrap">
     <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
@@ -66,14 +97,14 @@ function hive_connect_settings_page_content()
           <th scope="row"><label for="hive_api_url">Hive API URL</label></th>
           <td>
             <input name="hive_api_url" type="url" id="hive_api_url" value="<?php echo esc_attr($current_api_url); ?>" class="regular-text" placeholder="https://api.hive.blog/">
-            <p class="description">Enter the URL of the Hive API node you want to use. **Must end with a forward slash (/)**.</p>
+            <p class="description">Enter the URL of the Hive API node you want to use. Leave it empty to use the default: <code>https://api.hive.blog/</code>.</p>
             <p class="description">You can find a list of public API nodes here: <a href="https://developers.hive.io/quickstart/#quickstart-hive-full-nodes" target="_blank">Hive Public API Nodes</a>.</p>
           </td>
         </tr>
         <tr>
           <th scope="row">Instructions for use</th>
           <td>
-            <p><strong>Step 1:</strong> Set your Hive username above.</p>
+            <p><strong>Step 1:</strong> Set your Hive Username and preferred Hive API URL above. (Default API: <code>https://api.hive.blog/</code>).</p>
             <p><strong>Step 2:</strong> Create a WordPress page for the list of posts and use the shortcode. <code>[hive_posts_list]</code>.</p>
             <p><strong>Step 3:</strong> Create a second WordPress page to view the full post (for example, with the slug <code>view-post-hive</code>) and use the shortcode <code>[hive_post_viewer]</code>. The URL linked to the list of posts is the one that should be used here.</p>
           </td>
