@@ -156,74 +156,68 @@ function hive_connect_posts_list_shortcode($atts)
 {
   $atts = shortcode_atts([
     'limit' => 10,
-    // Base URL to the page that has the shortcode [hive_post_viewer]
     'viewer_page' => 'view-post-hive', 
   ], $atts);
 
-    $username = get_option('hive_connect_username');
+  $username = get_option('hive_connect_username');
 
-    if(empty($username)) {
-        return '<p class="text-red-500">Please configure your Hive username in the plugin settings.</p>';
-    }
+  if(empty($username)) {
+    return '<p class="hive-error">Please configure your Hive username in the plugin settings.</p>';
+  }
 
-    $posts = hive_viewer_api_call('get_discussions_by_blog', [
-        [
-          'tag'    => $username,
-          'limit'  => (int) $atts['limit'],
-        ]
-    ]);
+  $posts = hive_viewer_api_call('get_discussions_by_blog', [
+    [
+      'tag'    => $username,
+      'limit'  => (int) $atts['limit'],
+    ]
+  ]);
 
-    if(!is_array($posts) || empty($posts)) {
-      return '<p>The posts could not be loaded, or the user has no posts.</p>';
-    }
+  if(!is_array($posts) || empty($posts)) {
+    return '<p class="hive-no-posts">The posts could not be loaded, or the user has no posts.</p>';
+  }
 
-    ob_start();
+ob_start();
 ?>
-  <div class="hive-post-list">
-    <h2>Latest posts by @<?php echo esc_html($username); ?></h2>
-    <div class="space-y-6">
-      <?php foreach($posts as $post) : 
-        // Build the link to the post display page
-        $link = get_site_url(null, $atts['viewer_page']) . '?permlink=' . urlencode($post['permlink']) . '&author=' . urlencode($post['author']);
-        
-        // --- Summary/Excerpt Logic ---
-        // 1. Remove HTML and Markdown tags for a clean preview
-        $clean_content = wp_strip_all_tags($post['body']);
-        // 2. Trim the content to 30 words
-        $excerpt = wp_trim_words($clean_content, 30, '...');
-      ?>
-      <article class="p-4 border border-gray-200 rounded-lg hover:shadow-md transition duration-200 bg-white">
-        <h3 class="mb-2">
-          <a href="<?php echo esc_url( $link ); ?>" class="text-xl font-semibold text-blue-600 hover:text-blue-800" title="<?php echo esc_attr( $post['title'] ); ?>">
-            <?php echo esc_html( $post['title'] ); ?>
-          </a>
-        </h3>
-        
-        <p class="text-gray-600 text-sm mb-3 leading-relaxed">
-          <?php echo esc_html($excerpt); ?>
-        </p>
 
-        <div class="flex items-center text-xs text-gray-500 space-x-4">
-          <span>Published on <?php echo esc_html( date( 'd/m/Y', strtotime( $post['created'] ) ) ); ?></span>
-          <span>|</span>
-          <span>Votes: <?php echo (int) $post['net_rshares']; ?></span>
-          <span>|</span>
-          <a href="<?php echo esc_url( $link ); ?>" class="font-medium text-indigo-600 hover:text-indigo-800">Read more &rarr;</a>
-        </div>
-      </article>
-      <?php endforeach; ?>
-    </div>
-  </div>
+  <section class="hive-connect-posts-list">
+    <h2 class="hive-list-title">Latest posts by @<?php echo esc_html($username); ?></h2>
+    
+    <?php foreach($posts as $post) : 
+      $link = get_site_url(null, $atts['viewer_page']) . '?permlink=' . urlencode($post['permlink']) . '&author=' . urlencode($post['author']);
+      $clean_content = wp_strip_all_tags($post['body']);
+      $excerpt = wp_trim_words($clean_content, 30, '...');
+    ?>
+
+    <article class="hive-connect-post-item">
+      <header class="hive-post-header">
+        <h3 class="entry-title">
+          <a href="<?php echo esc_url( $link ); ?>"><?php echo esc_html( $post['title'] ); ?></a>
+        </h3>
+      </header>
+
+      <div class="entry-summary">
+        <p><?php echo esc_html($excerpt); ?></p>
+      </div>
+
+      <footer class="entry-footer">
+        <span class="posted-on">Published on <?php echo esc_html( date( 'd/m/Y', strtotime( $post['created'] ) ) ); ?></span>
+        <span class="post-votes"> | Votes: <?php echo (int) $post['net_rshares']; ?></span>
+          <a href="<?php echo esc_url( $link ); ?>" class="read-more">Read more &rarr;</a>
+      </footer>
+    </article>
+    <?php endforeach; ?>
+  </section>
 <?php
+
 return ob_get_clean();
 }
+
 add_shortcode( 'hive_posts_list', 'hive_connect_posts_list_shortcode' );
 
 // 4. SHORTCODE TO VIEW THE FULL POST
 
 function hive_viewer_post_viewer_shortcode()
 {
-  // Get the parameters from the URL
   $permlink = isset($_GET['permlink']) ? sanitize_text_field($_GET['permlink']) : '';
   $author = isset($_GET['author']) ? sanitize_text_field( $_GET['author']) : '';
 
@@ -231,57 +225,70 @@ function hive_viewer_post_viewer_shortcode()
     return '<p>Please select an item from the list of publications.</p>';
   }
 
-  // Call the API to get the full post
   $post = hive_viewer_api_call('get_content', [$author, $permlink]);
 
   if(!is_array($post) || empty($post['body'])) {
     return '<p>Error loading article content.</p>';
   }
 
-  // --- Rendering Process ---
+  $body_content = wpautop( html_entity_decode( $post['body'] ) );
 
-  
-  // 1. Decode HTML entities.
-  $body_content = html_entity_decode( $post['body'] );
-  
-  // 2. Use wpautop to convert line breaks to <p> tags (helps with readability).
-  $body_content = wpautop( $body_content );
+ob_start();
 
-  // 3. Sanitize to ensure that the HTML is safe.
-
-  ob_start();
 ?>
-  <div class="hive-post-viewer">
-    <article class="p-6 bg-white shadow-lg rounded-lg">
-      <h1 class="text-4xl font-bold mb-4 text-gray-900"><?php echo esc_html($post['title']); ?></h1>
-      <div class="mb-6 text-sm text-gray-600 border-b pb-4">
-        <span class="mr-4">By: <strong class="text-blue-600">@<?php echo esc_html( $post['author'] ); ?></strong></span>
-        <span>Date: <?php echo esc_html(date('d/m/Y H:i', strtotime($post['created']))); ?></span>
+  <article class="hive-connect-full-post">
+    <header class="entry-header">
+      <h1 class="entry-title"><?php echo esc_html($post['title']); ?></h1>
+      <div class="entry-meta">
+        <span class="byline">By: <strong>@<?php echo esc_html( $post['author'] ); ?></strong></span>
+        <span class="posted-on"> | Date: <?php echo esc_html(date('d/m/Y H:i', strtotime($post['created']))); ?></span>
       </div>
+    </header>
 
-      <div class="post-content text-gray-700 leading-relaxed space-y-4">
-        <?php
-          // Displays the processed content. The use of echo $body_content is intentional
-          // to allow HTML generated by Markdown, but it is done after basic sanitization.
-          echo $body_content; 
-        ?>
-      </div>
+    <div class="entry-content">
+      <?php echo $body_content; ?>
+    </div>
 
-      <div class="mt-8 pt-4 border-t text-sm text-gray-500">
-        <p>Outstanding value: $<?php echo number_format((float) $post['pending_payout_value'], 2); ?></p>
-        <p>Comments: <?php echo (int) $post['children']; ?></p>
-        <p><a href="https://peakd.com/@<?php echo esc_attr($post['author']); ?>/<?php echo esc_attr($post['permlink']); ?>" target="_blank" class="text-indigo-500 hover:text-indigo-700 font-medium">View in Hive Explorer &rarr;</a></p>
+    <footer class="entry-footer">
+      <div class="hive-stats">
+        <p>Value: $<?php echo number_format((float) $post['pending_payout_value'], 2); ?> | Comments: <?php echo (int) $post['children']; ?></p>
       </div>
+      <a href="https://peakd.com/@<?php echo esc_attr($post['author']); ?>/<?php echo esc_attr($post['permlink']); ?>" target="_blank" class="hive-explorer-link">View in Hive Explorer &rarr;</a>
+        
+      <div class="post-navigation">
+        <a href="javascript:history.back()" class="button">&larr; Back</a>
+      </div>
+    </footer>
+  </article>
 
-      <!-- Back button, assuming the list page has the slug ‘blog-hive’ or similar -->
-      <div class="mt-6">
-        <a href="<?php echo esc_url( get_site_url() . '/blog-hive/'); ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-          &larr; Back to the list of posts
-        </a>
-      </div>
-    </article>
-  </div>
-  <?php
-  return ob_get_clean();
+<?php
+
+return ob_get_clean();
 }
+
 add_shortcode('hive_post_viewer', 'hive_viewer_post_viewer_shortcode');
+
+// 5. MINIMAL CSS FOR STRUCTURE
+function hive_connect_basic_styles()
+{
+?>
+  <style>
+    .hive-connect-posts-list { margin-bottom: 2em; }
+    .hive-connect-post-item { 
+      margin-bottom: 2em; 
+      padding-bottom: 1.5em; 
+      border-bottom: 1px solid #eee; 
+    }
+    .hive-connect-post-item h3 { margin-bottom: 0.5em; }
+    .entry-meta, .entry-footer { font-size: 0.9em; color: #666; }
+    .entry-content { line-height: 1.6; margin-top: 1.5em; }
+    .hive-connect-full-post .entry-header { margin-bottom: 2em; }
+    .post-navigation { margin-top: 2em; }
+    .read-more, .button {
+      display: inline-block; text-decoration: none; font-weight: bold;
+    }
+  </style>
+<?php
+}
+
+add_action('wp_head', 'hive_connect_basic_styles');
