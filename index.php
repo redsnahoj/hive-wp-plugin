@@ -186,24 +186,43 @@ ob_start();
       $link = get_site_url(null, $atts['viewer_page']) . '?permlink=' . urlencode($post['permlink']) . '&author=' . urlencode($post['author']);
       $clean_content = wp_strip_all_tags($post['body']);
       $excerpt = wp_trim_words($clean_content, 30, '...');
+
+      $thumbnail_url = '';
+      if (!empty($post['json_metadata'])) {
+        $metadata = json_decode($post['json_metadata'], true);
+
+        if (!empty($metadata['image']) && is_array($metadata['image'])) {
+          $thumbnail_url = $metadata['image'][0];
+        }
+      }
     ?>
 
-    <article class="hive-connect-post-item">
-      <header class="hive-post-header">
-        <h3 class="entry-title">
-          <a href="<?php echo esc_url( $link ); ?>"><?php echo esc_html( $post['title'] ); ?></a>
-        </h3>
-      </header>
-
-      <div class="entry-summary">
-        <p><?php echo esc_html($excerpt); ?></p>
+    <article class="hive-connect-post-item has-post-thumbnail">
+      <?php if ($thumbnail_url) : ?>
+      <div class="post-thumbnail">
+        <a href="<?php echo esc_url($link); ?>">
+          <img src="<?php echo esc_url($thumbnail_url); ?>" alt="<?php echo esc_attr($post['title']); ?>" loading="lazy">
+        </a>
       </div>
+      <?php endif; ?>
 
-      <footer class="entry-footer">
-        <span class="posted-on">Published on <?php echo esc_html( date( 'd/m/Y', strtotime( $post['created'] ) ) ); ?></span>
-        <span class="post-votes"> | Votes: <?php echo (int) $post['net_rshares']; ?></span>
+      <div class="post-content-wrapper">
+        <header class="hive-post-header">
+          <h3 class="entry-title">
+            <a href="<?php echo esc_url( $link ); ?>"><?php echo esc_html( $post['title'] ); ?></a>
+          </h3>
+        </header>
+
+        <div class="entry-summary">
+          <p><?php echo esc_html($excerpt); ?></p>
+        </div>
+
+        <footer class="entry-footer">
+          <span class="posted-on"><?php echo esc_html( date( 'd/m/Y', strtotime( $post['created'] ) ) ); ?></span>
+          <span class="post-votes"> | Votes: <?php echo (int) $post['net_rshares']; ?></span>
           <a href="<?php echo esc_url( $link ); ?>" class="read-more">Read more &rarr;</a>
-      </footer>
+        </footer>
+      </div>
     </article>
     <?php endforeach; ?>
   </section>
@@ -275,17 +294,44 @@ function hive_connect_basic_styles()
   <style>
     .hive-connect-posts-list { margin-bottom: 2em; }
     .hive-connect-post-item { 
-      margin-bottom: 2em; 
-      padding-bottom: 1.5em; 
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      margin-bottom: 3em; 
+      padding-bottom: 2em; 
       border-bottom: 1px solid #eee; 
     }
-    .hive-connect-post-item h3 { margin-bottom: 0.5em; }
-    .entry-meta, .entry-footer { font-size: 0.9em; color: #666; }
+
+    @media (min-width: 600px) {
+      .hive-connect-post-item { flex-direction: row; align-items: flex-start; }
+      .post-thumbnail { flex: 0 0 200px; }
+      .post-content-wrapper { flex: 1; }
+    }
+
+    .post-thumbnail img { 
+      width: 100%; 
+      height: auto; 
+      border-radius: 4px; 
+      display: block;
+      object-fit: cover;
+      aspect-ratio: 16 / 9;
+    }
+
+    .hive-connect-post-item h3 { margin-top: 0; margin-bottom: 0.5em; }
+    .entry-meta, .entry-footer { font-size: 0.85em; color: #666; }
     .entry-content { line-height: 1.6; margin-top: 1.5em; }
-    .hive-connect-full-post .entry-header { margin-bottom: 2em; }
-    .post-navigation { margin-top: 2em; }
-    .read-more, .button {
-      display: inline-block; text-decoration: none; font-weight: bold;
+    
+    .read-more { font-weight: bold; text-decoration: none; margin-left: 10px; }
+    .hive-explorer-link { display: block; margin: 1em 0; font-weight: bold; }
+    
+    .post-navigation .button {
+      display: inline-block;
+      padding: 8px 16px;
+      background: #f7f7f7;
+      border: 1px solid #ccc;
+      color: #333;
+      text-decoration: none;
+      border-radius: 3px;
     }
   </style>
 <?php
