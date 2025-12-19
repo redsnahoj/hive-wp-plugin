@@ -176,69 +176,52 @@ function hive_connect_posts_list_shortcode($atts)
     return '<p class="hive-no-posts">The posts could not be loaded, or the user has no posts.</p>';
   }
 
-ob_start();
-?>
+  ob_start();
 
-  <section class="hive-connect-posts-list">
+  $last_post = end($posts);
+?>
+  <div id="hive-posts-container" class="hive-connect-posts-list" 
+  data-username="<?php echo esc_attr($username); ?>" 
+  data-permlink="<?php echo esc_attr($last_post['permlink']); ?>"
+  data-author="<?php echo esc_attr($last_post['author']); ?>">
+    
     <h2 class="hive-list-title">Latest posts by @<?php echo esc_html($username); ?></h2>
     
-    <?php foreach($posts as $post) : 
-      $link = get_site_url(null, $atts['viewer_page']) . '?permlink=' . urlencode($post['permlink']) . '&author=' . urlencode($post['author']);
+    <div id="hive-posts-inner">
+      <?php foreach($posts as $post) : 
+        $link = get_site_url(null, $atts['viewer_page']) . '?permlink=' . urlencode($post['permlink']) . '&author=' . urlencode($post['author']);
 
-      $body = $post['body'];
+        $body = $post['body'];
 
-      $body = preg_replace('/!\[.*?\]\(.*?\)/', '', $body);
+        $body = preg_replace('/!\[.*?\]\(.*?\)/', '', $body);
 
-      $body = preg_replace('/\[(.*?)\]\(.*?\)/', '$1', $body);
+        $body = preg_replace('/\[(.*?)\]\(.*?\)/', '$1', $body);
 
-      $body = str_replace(['**', '__', '*', '_', '###', '##', '#'], '', $body);
+       $body = str_replace(['**', '__', '*', '_', '###', '##', '#'], '', $body);
 
-      $clean_content = wp_strip_all_tags($body);
+        $clean_content = wp_strip_all_tags($body);
 
-      $excerpt = wp_trim_words($clean_content, 30, '...');
+        $excerpt = wp_trim_words($clean_content, 30, '...');
 
-      $thumbnail_url = '';
-      if (!empty($post['json_metadata'])) {
-        $metadata = json_decode($post['json_metadata'], true);
+        $thumbnail_url = '';
+        if (!empty($post['json_metadata'])) {
+          $metadata = json_decode($post['json_metadata'], true);
 
-        if (!empty($metadata['image']) && is_array($metadata['image'])) {
-          $thumbnail_url = $metadata['image'][0];
+          if (!empty($metadata['image']) && is_array($metadata['image'])) {
+            $thumbnail_url = $metadata['image'][0];
+          }
         }
-      }
-    ?>
+      ?>
+      <?php endforeach; ?>
+    </div>
 
-    <article class="hive-connect-post-item has-post-thumbnail">
-      <?php if ($thumbnail_url) : ?>
-      <div class="post-thumbnail">
-        <a href="<?php echo esc_url($link); ?>">
-          <img src="<?php echo esc_url($thumbnail_url); ?>" alt="<?php echo esc_attr($post['title']); ?>" loading="lazy">
-        </a>
-      </div>
-      <?php endif; ?>
-
-      <div class="post-content-wrapper">
-        <header class="hive-post-header">
-          <h3 class="entry-title">
-            <a href="<?php echo esc_url( $link ); ?>"><?php echo esc_html( $post['title'] ); ?></a>
-          </h3>
-        </header>
-
-        <div class="entry-summary">
-          <p><?php echo esc_html($excerpt); ?></p>
-        </div>
-
-        <footer class="entry-footer">
-          <span class="posted-on"><?php echo esc_html( date( 'd/m/Y', strtotime( $post['created'] ) ) ); ?></span>
-          <span class="post-votes"> | Votes: <?php echo (int) $post['net_rshares']; ?></span>
-          <a href="<?php echo esc_url( $link ); ?>" class="read-more">Read more &rarr;</a>
-        </footer>
-      </div>
-    </article>
-    <?php endforeach; ?>
-  </section>
+    <div id="hive-load-more-trigger" style="text-align:center; padding: 20px;">
+      <span class="spinner-text" style="display:none;">Cargando más publicaciones...</span>
+    </div>
+  </div>
 <?php
-
 return ob_get_clean();
+
 }
 
 add_shortcode( 'hive_posts_list', 'hive_connect_posts_list_shortcode' );
@@ -348,3 +331,135 @@ function hive_connect_basic_styles()
 }
 
 add_action('wp_head', 'hive_connect_basic_styles');
+
+// 6. AJAX
+
+add_action('wp_ajax_load_more_hive_posts', 'load_more_hive_posts_handler');
+add_action('wp_ajax_nopriv_load_more_hive_posts', 'load_more_hive_posts_handler');
+
+function load_more_hive_posts_handler()
+{
+  $username = sanitize_text_field($_POST['username']);
+  $start_permlink = sanitize_text_field($_POST['last_permlink']);
+  $start_author = sanitize_text_field($_POST['last_author']);
+
+  $posts = hive_viewer_api_call('get_discussions_by_blog', [
+    [
+      'tag'    => $username,
+      'limit'  => 11,
+      'start_author'   => $start_author,
+      'start_permlink' => $start_permlink
+    ]
+  ]);
+
+  if (!is_array($posts) || count($posts) <= 1) {
+    wp_send_json_success(['html' => '', 'end' => true]);
+  }
+
+  array_shift($posts);
+
+  ob_start();
+
+  foreach($posts as $post) {
+    $link = get_site_url(null, 'view-post-hive') . '?permlink=' . urlencode($post['permlink']) . '&author=' . urlencode($post['author']);
+    $clean_content = wp_strip_all_tags(preg_replace('/!\[.*?\]\(.*?\)/', '', $post['body']));
+    $excerpt = wp_trim_words($clean_content, 30, '...');
+    $thumbnail_url = '';
+    if (!empty($post['json_metadata'])) {
+      $metadata = json_decode($post['json_metadata'], true);
+      if (!empty($metadata['image'][0])) $thumbnail_url = $metadata['image'][0];
+    }
+    ?>
+    <article class="hive-connect-post-item has-post-thumbnail">
+      <?php if ($thumbnail_url) : ?>
+      <div class="post-thumbnail">
+        <a href="<?php echo esc_url($link); ?>"><img src="<?php echo esc_url($thumbnail_url); ?>" loading="lazy"></a>
+      </div>
+      <?php endif; ?>
+      <div class="post-content-wrapper">
+        <h3 class="entry-title"><a href="<?php echo esc_url($link); ?>"><?php echo esc_html($post['title']); ?></a></h3>
+        <div class="entry-summary"><p><?php echo esc_html($excerpt); ?></p></div>
+        <footer class="entry-footer">
+          <span><?php echo esc_html(date('d/m/Y', strtotime($post['created']))); ?></span>
+          <a href="<?php echo esc_url($link); ?>" class="read-more">Read more &rarr;</a>
+        </footer>
+      </div>
+    </article>
+<?php
+  }
+
+  $html = ob_get_clean();
+  
+  $last_post = end($posts);
+  wp_send_json_success([
+    'html' => $html,
+    'last_permlink' => $last_post['permlink'],
+    'last_author' => $last_post['author'],
+    'end' => count($posts) < 10
+  ]);
+}
+
+// 7. Scroll
+
+function hive_connect_infinite_scroll_js()
+{
+?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const container = document.getElementById('hive-posts-container');
+  const inner = document.getElementById('hive-posts-inner');
+  const trigger = document.getElementById('hive-load-more-trigger');
+  const spinner = trigger.querySelector('.spinner-text');
+  
+  if (!container || !trigger) return;
+
+  let loading = false;
+  let reachedEnd = false;
+
+  const observer = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting && !loading && !reachedEnd) {
+      loadMorePosts();
+    }
+  }, { threshold: 0.1 });
+
+  observer.observe(trigger);
+
+  function loadMorePosts()
+  {
+    loading = true;
+    spinner.style.display = 'block';
+
+    const formData = new FormData();
+    formData.append('action', 'load_more_hive_posts');
+    formData.append('username', container.dataset.username);
+    formData.append('last_permlink', container.dataset.permlink);
+    formData.append('last_author', container.dataset.author);
+
+    fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+      method: 'POST',
+      body: formData
+    })
+    .then(res => res.json())
+    .then(response => {
+      if (response.success && response.data.html) {
+        inner.insertAdjacentHTML('beforeend', response.data.html);
+        container.dataset.permlink = response.data.last_permlink;
+        container.dataset.author = response.data.last_author;
+        if (response.data.end) reachedEnd = true;
+      } else {
+        reachedEnd = true;
+      }
+    })
+    .catch(err => console.error('Error loading Hive posts:', err))
+    .finally(() => {
+      loading = false;
+      spinner.style.display = 'none';
+      if (reachedEnd) trigger.innerHTML = '<p>No hay más publicaciones.</p>';
+    });
+  }
+});
+</script>
+<?php
+}
+add_action('wp_footer', 'hive_connect_infinite_scroll_js');
