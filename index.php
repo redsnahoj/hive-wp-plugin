@@ -184,7 +184,17 @@ ob_start();
     
     <?php foreach($posts as $post) : 
       $link = get_site_url(null, $atts['viewer_page']) . '?permlink=' . urlencode($post['permlink']) . '&author=' . urlencode($post['author']);
-      $clean_content = wp_strip_all_tags($post['body']);
+
+      $body = $post['body'];
+
+      $body = preg_replace('/!\[.*?\]\(.*?\)/', '', $body);
+
+      $body = preg_replace('/\[(.*?)\]\(.*?\)/', '$1', $body);
+
+      $body = str_replace(['**', '__', '*', '_', '###', '##', '#'], '', $body);
+
+      $clean_content = wp_strip_all_tags($body);
+
       $excerpt = wp_trim_words($clean_content, 30, '...');
 
       $thumbnail_url = '';
