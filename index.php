@@ -243,10 +243,23 @@ function hive_viewer_post_viewer_shortcode()
     return '<p>Error loading article content.</p>';
   }
 
-  $body_content = wpautop( html_entity_decode( $post['body'] ) );
+  $body_content = $post['body'];
+
+  $parsedown_path = plugin_dir_path( __FILE__ ) . 'Parsedown.php';
+  
+  if ( file_exists( $parsedown_path ) ) {
+    require_once( $parsedown_path );
+    $parsedown = new Parsedown();
+    
+    $parsedown->setSafeMode(false); 
+    
+    $body_content = $parsedown->text($body_content);
+  } else {
+      $body_content = wpautop( html_entity_decode( $body_content ) );
+      error_log('WP Hive Connect: No se encontró Parsedown.php en la carpeta del plugin.');
+  }
 
 ob_start();
-
 ?>
   <article class="hive-connect-full-post">
     <header class="entry-header">
@@ -272,9 +285,7 @@ ob_start();
       </div>
     </footer>
   </article>
-
 <?php
-
 return ob_get_clean();
 }
 
@@ -325,6 +336,18 @@ function hive_connect_basic_styles()
       color: #333;
       text-decoration: none;
       border-radius: 3px;
+    }
+
+    .entry-content img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 1.5em auto;
+    }
+    .entry-content iframe {
+      max-width: 100%;
+      width: 100%;
+      aspect-ratio: 16 / 9;
     }
   </style>
 <?php
