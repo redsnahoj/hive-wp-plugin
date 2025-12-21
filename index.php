@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: WP Hive Connect
+ * Plugin Name: Hive Connect WP
  * Description: Display posts from a specific user on the Hive blockchain on your WordPress site.
  * Version: 0.0.1
  * Author: redsnahoj
@@ -19,7 +19,7 @@ function hive_connect_add_settings_page()
 {
   add_menu_page(
     'Hive Connect settings',
-    'WP Hive Connect',
+    'Hive Connect WP',
     'manage_options',
     'hive-connect-settings',
     'hive_connect_settings_page_content'
